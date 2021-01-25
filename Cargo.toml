@@ -1,0 +1,12 @@
+[package]
+name = "ems_backend"
+version = "0.1.0"
+authors = ["Emmanuel Antony <emmanuelantony2000@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+actix-web = "4.0.0-beta.1"
+serde = { version = "1.0.122", features = ["derive"] }
+time = { version = "0.2.24", features = ["serde"] }
+tokio-postgres = { version = "0.7.0", features = ["with-time-0_2"] }
+
