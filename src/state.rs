@@ -1,5 +1,8 @@
 use actix_web::rt;
+use data_encoding::HEXUPPER;
+use ring::digest;
 use tokio_postgres::{Client, NoTls};
+use uuid::Uuid;
 
 pub struct AppState {
     pub db: Client,
@@ -16,12 +19,13 @@ impl AppState {
             }
         });
 
-        db.execute("DROP TABLE EMPLOYEE", &[]).await?;
+        let _ = db.execute("DROP TABLE EMPLOYEE", &[]).await;
         db.execute(
             "CREATE TABLE EMPLOYEE (
             ID UUID NOT NULL,
             NAME TEXT NOT NULL,
             EMAIL TEXT NOT NULL,
+            PASSWORD TEXT NOT NULL,
             PHNO TEXT NOT NULL,
             DOB DATE NOT NULL,
             ROLE TEXT NOT NULL,
@@ -34,6 +38,21 @@ impl AppState {
         )
         .await?;
 
+        admin(&db).await?;
+
         Ok(Self { db })
     }
+}
+
+async fn admin(db: &Client) -> anyhow::Result<()> {
+    let uuid = Uuid::new_v4();
+    let password = HEXUPPER
+        .encode(digest::digest(&digest::SHA256, format!("{}admin", uuid).as_bytes()).as_ref());
+
+    let query = format!("INSERT INTO EMPLOYEE VALUES (\'{}\', \'admin\', \'admin@admin\', \'{}\', \'9999999999\', \'2000-01-01\', \'admin\', \'1\', \'admin\')", uuid, password);
+    let statement = db.prepare(query.as_str()).await?;
+
+    db.execute(&statement, &[]).await?;
+
+    Ok(())
 }

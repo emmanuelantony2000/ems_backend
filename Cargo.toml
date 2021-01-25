@@ -8,6 +8,9 @@ edition = "2018"
 actix-web = "4.0.0-beta.1"
 anyhow = "1.0.38"
 chrono = { version = "0.4.19", features = ["serde"] }
+data-encoding = "2.3.1"
+jsonwebtoken = "7.2.0"
+ring = "0.16.19"
 serde = { version = "1.0.122", features = ["derive"] }
 tokio-postgres = { version = "0.7.0", features = ["with-chrono-0_4", "with-uuid-0_8"] }
 uuid = { version = "0.8.2", features = ["serde", "v4"] }

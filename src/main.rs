@@ -1,5 +1,6 @@
 use actix_web::{web, App, HttpServer};
 
+mod auth;
 mod routes;
 mod state;
 
