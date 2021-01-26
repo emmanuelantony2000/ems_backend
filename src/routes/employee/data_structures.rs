@@ -7,6 +7,7 @@ use uuid::Uuid;
 pub struct Employee {
     pub(super) name: String,
     pub(super) email: String,
+    pub(super) password: String,
     pub(super) phno: String,
     pub(super) dob: NaiveDate,
     pub(super) role: String,
@@ -15,11 +16,12 @@ pub struct Employee {
 }
 
 impl Employee {
-    pub(super) fn params<'a>(&'a self, uuid: &'a Uuid) -> [&'a (dyn ToSql + Sync); 8] {
+    pub(super) fn params<'a>(&'a self, uuid: &'a Uuid) -> [&'a (dyn ToSql + Sync); 9] {
         [
             uuid as &(dyn ToSql + Sync),
             &self.name as &(dyn ToSql + Sync),
             &self.email as &(dyn ToSql + Sync),
+            &self.password as &(dyn ToSql + Sync),
             &self.phno as &(dyn ToSql + Sync),
             &self.dob as &(dyn ToSql + Sync),
             &self.role as &(dyn ToSql + Sync),
@@ -34,6 +36,7 @@ pub struct EmployeeId {
     pub(super) id: Uuid,
     pub(super) name: String,
     pub(super) email: String,
+    pub(super) password: String,
     pub(super) phno: String,
     pub(super) dob: NaiveDate,
     pub(super) role: String,

@@ -1,27 +1,22 @@
-use actix_web::rt;
+use std::sync::Arc;
+
 use data_encoding::HEXUPPER;
 use ring::digest;
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
 
-pub struct AppState {
-    pub db: Client,
-}
+pub async fn init() -> anyhow::Result<Arc<Client>> {
+    let (db, connection) = tokio_postgres::connect("host=localhost user=postgres", NoTls).await?;
 
-impl AppState {
-    pub async fn new() -> anyhow::Result<Self> {
-        let (db, connection) =
-            tokio_postgres::connect("host=localhost user=postgres", NoTls).await?;
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("connection error: {}", e);
+        }
+    });
 
-        rt::spawn(async move {
-            if let Err(e) = connection.await {
-                eprintln!("connection error: {}", e);
-            }
-        });
-
-        let _ = db.execute("DROP TABLE EMPLOYEE", &[]).await;
-        db.execute(
-            "CREATE TABLE EMPLOYEE (
+    let _ = db.execute("DROP TABLE EMPLOYEE", &[]).await;
+    db.execute(
+        "CREATE TABLE EMPLOYEE (
             ID UUID NOT NULL,
             NAME TEXT NOT NULL,
             EMAIL TEXT NOT NULL,
@@ -34,14 +29,13 @@ impl AppState {
             PRIMARY KEY(ID),
             UNIQUE(EMAIL)
         )",
-            &[],
-        )
-        .await?;
+        &[],
+    )
+    .await?;
 
-        admin(&db).await?;
+    admin(&db).await?;
 
-        Ok(Self { db })
-    }
+    Ok(Arc::new(db))
 }
 
 async fn admin(db: &Client) -> anyhow::Result<()> {

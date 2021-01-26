@@ -1,25 +1,25 @@
-use actix_web::{web, App, HttpServer};
+use std::sync::Arc;
+
+use warp::Filter;
 
 mod auth;
+mod db;
 mod routes;
-mod state;
 
-use state::AppState;
-
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let state = web::Data::new(AppState::new().await?);
+    let db = db::init().await?;
 
-    HttpServer::new(move || {
-        App::new()
-            .app_data(state.clone())
-            .service(routes::get_employee)
-            .service(routes::get_employees)
-            .service(routes::post_employees)
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await?;
+    let route = health()
+        .or(routes::get_employee(Arc::clone(&db)))
+        .or(routes::get_employees(Arc::clone(&db)))
+        .or(routes::post_employees(Arc::clone(&db)));
+
+    warp::serve(route).run(([127, 0, 0, 1], 8080)).await;
 
     Ok(())
+}
+
+fn health() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("health").and(warp::get()).map(warp::reply)
 }
