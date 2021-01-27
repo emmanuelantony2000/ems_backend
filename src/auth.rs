@@ -15,8 +15,8 @@ pub const JWT_SECRET: &[u8] = b"This is a very big secret.";
 pub struct Claims {
     exp: usize,
     iat: usize,
-    role: String,
-    sub: String,
+    pub role: String,
+    pub sub: String,
 }
 
 impl Claims {
@@ -78,7 +78,10 @@ impl fmt::Display for Role {
     }
 }
 
-pub fn encode(claims: &Claims, secret: impl AsRef<[u8]>) -> anyhow::Result<String> {
+pub fn encode(
+    claims: &Claims,
+    secret: impl AsRef<[u8]>,
+) -> Result<String, jsonwebtoken::errors::Error> {
     Ok(jsonwebtoken::encode(
         &Header::default(),
         claims,
@@ -86,7 +89,10 @@ pub fn encode(claims: &Claims, secret: impl AsRef<[u8]>) -> anyhow::Result<Strin
     )?)
 }
 
-pub fn decode(token: String, secret: impl AsRef<[u8]>) -> anyhow::Result<Claims> {
+pub fn decode(
+    token: String,
+    secret: impl AsRef<[u8]>,
+) -> Result<Claims, jsonwebtoken::errors::Error> {
     Ok(jsonwebtoken::decode(
         &token,
         &DecodingKey::from_secret(secret.as_ref()),
@@ -95,12 +101,17 @@ pub fn decode(token: String, secret: impl AsRef<[u8]>) -> anyhow::Result<Claims>
     .claims)
 }
 
-pub fn create_jwt(id: Uuid, role: Role) -> anyhow::Result<String> {
+pub fn create_jwt(id: Uuid, role: Role) -> Result<String, jsonwebtoken::errors::Error> {
     let claims = Claims::new(id.to_string(), role.to_string());
     encode(&claims, JWT_SECRET)
 }
 
-pub fn generate_password(password: &String, id: &Uuid) -> String {
-    HEXUPPER
-        .encode(digest::digest(&digest::SHA256, format!("{}{}", id, password).as_bytes()).as_ref())
+pub fn generate_password(password: impl AsRef<str>, id: &Uuid) -> String {
+    HEXUPPER.encode(
+        digest::digest(
+            &digest::SHA256,
+            format!("{}{}", id, password.as_ref()).as_bytes(),
+        )
+        .as_ref(),
+    )
 }

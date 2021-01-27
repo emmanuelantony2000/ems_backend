@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use data_encoding::HEXUPPER;
-use ring::digest;
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
+
+use crate::auth;
 
 pub async fn init() -> anyhow::Result<Arc<Client>> {
     let (db, connection) = tokio_postgres::connect("host=localhost user=postgres", NoTls).await?;
@@ -24,6 +24,7 @@ pub async fn init() -> anyhow::Result<Arc<Client>> {
             PHNO TEXT NOT NULL,
             DOB DATE NOT NULL,
             ROLE TEXT NOT NULL,
+            DESIGNATION TEXT NOT NULL,
             EXPERIENCE INT NOT NULL,
             ADDRESS TEXT NOT NULL,
             PRIMARY KEY(ID),
@@ -40,10 +41,9 @@ pub async fn init() -> anyhow::Result<Arc<Client>> {
 
 async fn admin(db: &Client) -> anyhow::Result<()> {
     let uuid = Uuid::new_v4();
-    let password = HEXUPPER
-        .encode(digest::digest(&digest::SHA256, format!("{}admin", uuid).as_bytes()).as_ref());
+    let password = auth::generate_password("admin", &uuid);
 
-    let query = format!("INSERT INTO EMPLOYEE VALUES (\'{}\', \'admin\', \'admin@admin\', \'{}\', \'9999999999\', \'2000-01-01\', \'admin\', \'1\', \'admin\')", uuid, password);
+    let query = format!("INSERT INTO EMPLOYEE VALUES (\'{}\', \'admin\', \'admin@admin\', \'{}\', \'9999999999\', \'2000-01-01\', \'Admin\', \'admin\', \'1\', \'admin\')", uuid, password);
     let statement = db.prepare(query.as_str()).await?;
 
     db.execute(&statement, &[]).await?;

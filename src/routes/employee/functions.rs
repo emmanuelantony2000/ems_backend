@@ -26,11 +26,11 @@ macro_rules! bail {
     };
 }
 
-pub(super) async fn ge(id: Uuid, db: Arc<Client>) -> Result<impl Reply, Infallible> {
+pub(super) async fn ge((id, db): (Uuid, Arc<Client>)) -> Result<impl Reply, Infallible> {
     let statement = db
         .prepare_typed(
             "SELECT
-            NAME, EMAIL, PHNO, DOB, ROLE, EXPERIENCE, ADDRESS
+            NAME, EMAIL, PHNO, DOB, ROLE, DESIGNATION, EXPERIENCE, ADDRESS
             FROM EMPLOYEE
             WHERE ID = $1",
             &[Type::UUID],
@@ -48,8 +48,9 @@ pub(super) async fn ge(id: Uuid, db: Arc<Client>) -> Result<impl Reply, Infallib
         phno: row.get(2),
         dob: row.get(3),
         role: row.get(4),
-        experience: row.get(5),
-        address: row.get(6),
+        designation: row.get(5),
+        experience: row.get(6),
+        address: row.get(7),
     })
     .into_response())
 }
@@ -77,8 +78,9 @@ pub(super) async fn ges(db: Arc<Client>) -> Result<impl Reply, Infallible> {
             phno: row.get(4),
             dob: row.get(5),
             role: row.get(6),
-            experience: row.get(7),
-            address: row.get(8),
+            designation: row.get(7),
+            experience: row.get(8),
+            address: row.get(9),
         })
         .collect();
 
@@ -86,8 +88,7 @@ pub(super) async fn ges(db: Arc<Client>) -> Result<impl Reply, Infallible> {
 }
 
 pub(super) async fn pe(
-    mut employees: Vec<Employee>,
-    db: Arc<Client>,
+    (mut employees, db): (Vec<Employee>, Arc<Client>),
 ) -> Result<impl Reply, Infallible> {
     let len = employees.len();
 
@@ -97,7 +98,7 @@ pub(super) async fn pe(
     for _ in 0..len {
         query.push_str(" (");
 
-        for _ in 0..8 {
+        for _ in 0..9 {
             query.push_str(format!("${}, ", count).as_str());
             count += 1;
         }
@@ -114,6 +115,7 @@ pub(super) async fn pe(
         Type::TEXT,
         Type::TEXT,
         Type::DATE,
+        Type::TEXT,
         Type::TEXT,
         Type::INT4,
         Type::TEXT,

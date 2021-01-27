@@ -5,6 +5,9 @@ use tokio_postgres::Client;
 use uuid::Uuid;
 use warp::Filter;
 
+use super::{with_auth, with_db};
+use crate::auth::Role;
+
 mod data_structures;
 mod functions;
 
@@ -16,6 +19,19 @@ pub fn get_employee(
     warp::path!("employee" / Uuid)
         .and(warp::get())
         .and(with_db(db))
+        .and(with_auth(Role::Admin))
+        .map(|id, db, _| (id, db))
+        .and_then(functions::ge)
+}
+
+pub fn get_self(
+    db: Arc<Client>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("employee" / "self")
+        .and(warp::get())
+        .and(with_db(db))
+        .and(with_auth(Role::User))
+        .map(|db, id| (id, db))
         .and_then(functions::ge)
 }
 
@@ -25,6 +41,8 @@ pub fn get_employees(
     warp::path!("employee")
         .and(warp::get())
         .and(with_db(db))
+        .and(with_auth(Role::Admin))
+        .map(|db, _| db)
         .and_then(functions::ges)
 }
 
@@ -35,20 +53,7 @@ pub fn post_employees(
         .and(warp::post())
         .and(warp::body::json())
         .and(with_db(db))
+        .and(with_auth(Role::Admin))
+        .map(|employees, db, _| (employees, db))
         .and_then(functions::pe)
 }
-
-fn with_db(db: Arc<Client>) -> impl Filter<Extract = (Arc<Client>,), Error = Infallible> + Clone {
-    warp::any().map(move || Arc::clone(&db))
-}
-
-// #[post("/employee")]
-// pub async fn post_employees(
-//     state: web::Data<AppState>,
-//     employees: web::Json<Vec<Employee>>,
-// ) -> HttpResponse {
-//     match functions::pe(&state, &employees).await {
-//         Ok(x) => HttpResponse::Ok().json(x),
-//         Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
-//     }
-// }

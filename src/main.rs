@@ -4,6 +4,7 @@ use warp::Filter;
 
 mod auth;
 mod db;
+mod error;
 mod routes;
 
 #[tokio::main]
@@ -12,8 +13,10 @@ async fn main() -> anyhow::Result<()> {
 
     let route = health()
         .or(routes::get_employee(Arc::clone(&db)))
+        .or(routes::get_self(Arc::clone(&db)))
         .or(routes::get_employees(Arc::clone(&db)))
-        .or(routes::post_employees(Arc::clone(&db)));
+        .or(routes::post_employees(Arc::clone(&db)))
+        .or(routes::login(Arc::clone(&db)));
 
     warp::serve(route).run(([127, 0, 0, 1], 8080)).await;
 

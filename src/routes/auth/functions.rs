@@ -1,47 +1,25 @@
 use std::convert::Infallible;
+use std::sync::Arc;
 
-use anyhow::bail;
-use warp::http::header::{HeaderMap, HeaderValue, AUTHORIZATION};
-use warp::Reply;
+use tokio_postgres::types::Type;
+use tokio_postgres::Client;
+use uuid::Uuid;
+use warp::http::{
+    self,
+    header::{HeaderMap, HeaderValue, AUTHORIZATION},
+};
+use warp::{reject, reply, Rejection, Reply};
 
-use crate::auth::{decode, Role, BEARER, JWT_SECRET};
+use super::LoginRequest;
+use crate::auth::{create_jwt, decode, generate_password, Role, BEARER, JWT_SECRET};
+use crate::error::Error;
 
-macro_rules! bail {
-    ($res:ident) => {
-        match $res {
-            Ok(x) => x,
-            Err(e) => {
-                return Ok(reply::with_status(
-                    format!("{:?}", e),
-                    http::StatusCode::INTERNAL_SERVER_ERROR,
-                )
-                .into_response());
-            }
-        };
-    };
-}
-
-async fn authorize(
-    (role, headers): (Role, HeaderMap<HeaderValue>),
-) -> Result<impl Reply, Infalliable> {
-    let jwt = jwt_from_header(&headers);
-    let jwt = bail!(jwt);
-
-    let claims = decode(jwt, JWT_SECRET);
-    let claims = bail!(claims);
-}
-
-fn jwt_from_header(headers: &HeaderMap<HeaderValue>) -> anyhow::Result<String> {
-    let header = match headers.get(AUTHORIZATION) {
-        Some(v) => v,
-        None => bail!("No auth header"),
-    };
-    let auth_header = match std::str::from_utf8(header.as_bytes()) {
-        Ok(v) => v,
-        Err(_) => bail!("No auth header"),
-    };
+pub(super) fn jwt_from_header(headers: &HeaderMap<HeaderValue>) -> Result<String, Error> {
+    let header = headers.get(AUTHORIZATION).ok_or(Error::NoAuthHeaderError)?;
+    let auth_header =
+        std::str::from_utf8(header.as_bytes()).map_err(|_| Error::NoAuthHeaderError)?;
     if !auth_header.starts_with(BEARER) {
-        return bail!("Invalid auth header");
+        return Err(Error::InvalidAuthHeaderError);
     }
     Ok(auth_header.trim_start_matches(BEARER).to_owned())
 }

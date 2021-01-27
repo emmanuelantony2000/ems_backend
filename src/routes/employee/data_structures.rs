@@ -11,12 +11,13 @@ pub struct Employee {
     pub(super) phno: String,
     pub(super) dob: NaiveDate,
     pub(super) role: String,
+    pub(super) designation: String,
     pub(super) experience: i32,
     pub(super) address: String,
 }
 
 impl Employee {
-    pub(super) fn params<'a>(&'a self, uuid: &'a Uuid) -> [&'a (dyn ToSql + Sync); 9] {
+    pub(super) fn params<'a>(&'a self, uuid: &'a Uuid) -> [&'a (dyn ToSql + Sync); 10] {
         [
             uuid as &(dyn ToSql + Sync),
             &self.name as &(dyn ToSql + Sync),
@@ -25,6 +26,7 @@ impl Employee {
             &self.phno as &(dyn ToSql + Sync),
             &self.dob as &(dyn ToSql + Sync),
             &self.role as &(dyn ToSql + Sync),
+            &self.designation as &(dyn ToSql + Sync),
             &self.experience as &(dyn ToSql + Sync),
             &self.address as &(dyn ToSql + Sync),
         ]
@@ -40,6 +42,7 @@ pub struct EmployeeId {
     pub(super) phno: String,
     pub(super) dob: NaiveDate,
     pub(super) role: String,
+    pub(super) designation: String,
     pub(super) experience: i32,
     pub(super) address: String,
 }
