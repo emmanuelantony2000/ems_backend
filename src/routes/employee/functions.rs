@@ -1,45 +1,30 @@
-use std::convert::Infallible;
 use std::sync::Arc;
 
 use tokio_postgres::types::Type;
 use tokio_postgres::Client;
 use uuid::Uuid;
-use warp::http;
-use warp::reply;
-use warp::Reply;
+use warp::{reject, reply, Rejection, Reply};
 
 use super::{Employee, EmployeeId};
 use crate::auth::generate_password;
+use crate::error::Error;
 
-macro_rules! bail {
-    ($res:ident) => {
-        match $res {
-            Ok(x) => x,
-            Err(e) => {
-                return Ok(reply::with_status(
-                    format!("{:?}", e),
-                    http::StatusCode::INTERNAL_SERVER_ERROR,
-                )
-                .into_response());
-            }
-        };
-    };
-}
-
-pub(super) async fn ge((id, db): (Uuid, Arc<Client>)) -> Result<impl Reply, Infallible> {
+pub(super) async fn ge((id, db): (Uuid, Arc<Client>)) -> Result<impl Reply, Rejection> {
     let statement = db
         .prepare_typed(
             "SELECT
-            NAME, EMAIL, PHNO, DOB, ROLE, DESIGNATION, EXPERIENCE, ADDRESS
+            NAME, EMAIL, PHONE_NUMBER, DOB, ROLE, DESIGNATION, EXPERIENCE, ADDRESS
             FROM EMPLOYEE
             WHERE ID = $1",
             &[Type::UUID],
         )
-        .await;
-    let statement = bail!(statement);
+        .await
+        .map_err(|e| reject::custom(Error::StatementPrepareError(e)))?;
 
-    let row = db.query_one(&statement, &[&id]).await;
-    let row = bail!(row);
+    let row = db
+        .query_one(&statement, &[&id])
+        .await
+        .map_err(|e| reject::custom(Error::QueryError(e)))?;
 
     Ok(reply::json(&Employee {
         name: row.get(0),
@@ -51,22 +36,23 @@ pub(super) async fn ge((id, db): (Uuid, Arc<Client>)) -> Result<impl Reply, Infa
         designation: row.get(5),
         experience: row.get(6),
         address: row.get(7),
-    })
-    .into_response())
+    }))
 }
 
-pub(super) async fn ges(db: Arc<Client>) -> Result<impl Reply, Infallible> {
+pub(super) async fn ges(db: Arc<Client>) -> Result<impl Reply, Rejection> {
     let statement = db
         .prepare_typed(
             "SELECT *
             FROM EMPLOYEE",
             &[],
         )
-        .await;
-    let statement = bail!(statement);
+        .await
+        .map_err(|e| reject::custom(Error::StatementPrepareError(e)))?;
 
-    let rows = db.query(&statement, &[]).await;
-    let rows = bail!(rows);
+    let rows = db
+        .query(&statement, &[])
+        .await
+        .map_err(|e| reject::custom(Error::QueryError(e)))?;
 
     let rows: Vec<EmployeeId> = rows
         .iter()
@@ -84,12 +70,12 @@ pub(super) async fn ges(db: Arc<Client>) -> Result<impl Reply, Infallible> {
         })
         .collect();
 
-    Ok(reply::json(&rows).into_response())
+    Ok(reply::json(&rows))
 }
 
 pub(super) async fn pe(
     (mut employees, db): (Vec<Employee>, Arc<Client>),
-) -> Result<impl Reply, Infallible> {
+) -> Result<impl Reply, Rejection> {
     let len = employees.len();
 
     let mut count = 1usize;
@@ -126,8 +112,10 @@ pub(super) async fn pe(
     .take(9 * len)
     .collect();
 
-    let statement = db.prepare_typed(query.as_str(), &types).await;
-    let statement = bail!(statement);
+    let statement = db
+        .prepare_typed(query.as_str(), &types)
+        .await
+        .map_err(|e| reject::custom(Error::StatementPrepareError(e)))?;
 
     let uuid: Vec<Uuid> = (0..len).map(|_| Uuid::new_v4()).collect();
 
@@ -141,16 +129,34 @@ pub(super) async fn pe(
         .zip(uuid.iter())
         .flat_map(|(e, u)| e.params(u).to_vec().into_iter())
         .collect();
-    let res = db.execute(&statement, &params[..]).await;
-    let res = bail!(res);
+    let res = db
+        .execute(&statement, &params[..])
+        .await
+        .map_err(|e| reject::custom(Error::ExecuteError(e)))?;
 
     if res != len as u64 {
-        return Ok(reply::with_status(
-            "Insert Unsuccessful",
-            http::StatusCode::INTERNAL_SERVER_ERROR,
-        )
-        .into_response());
+        return Err(reject::custom(Error::InsertUnsuccessfulError(
+            res,
+            len as u64 - res,
+        )));
     }
 
-    Ok(reply::json(&uuid).into_response())
+    Ok(reply::json(&uuid))
+}
+
+pub(super) async fn de((email, db): (String, Arc<Client>)) -> Result<impl Reply, Rejection> {
+    let statement = db
+        .prepare_typed(
+            "DELETE FROM EMPLOYEE
+            WHERE EMAIL = $1",
+            &[Type::TEXT],
+        )
+        .await
+        .map_err(|e| reject::custom(Error::StatementPrepareError(e)))?;
+
+    db.execute(&statement, &[&email])
+        .await
+        .map_err(|e| reject::custom(Error::ExecuteError(e)))?;
+
+    Ok(reply::reply())
 }

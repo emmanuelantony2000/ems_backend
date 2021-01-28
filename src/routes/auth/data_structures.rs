@@ -4,4 +4,5 @@ use serde::{Deserialize, Serialize};
 pub struct LoginRequest {
     pub(super) email: String,
     pub(super) password: String,
+    pub(super) permanent: Option<bool>,
 }

@@ -5,15 +5,17 @@ use tokio_postgres::Client;
 use uuid::Uuid;
 use warp::{
     filters::header::headers_cloned,
-    http::header::{HeaderMap, HeaderValue, AUTHORIZATION},
-    reject, Filter, Rejection,
+    http::header::{HeaderMap, HeaderValue},
+    Filter, Rejection,
 };
 
 use crate::auth::Role;
 
+mod attendance;
 mod auth;
 mod employee;
 
+pub use attendance::*;
 pub use auth::*;
 pub use employee::*;
 

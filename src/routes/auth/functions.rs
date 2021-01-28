@@ -1,18 +1,62 @@
-use std::convert::Infallible;
 use std::sync::Arc;
 
 use tokio_postgres::types::Type;
 use tokio_postgres::Client;
-use uuid::Uuid;
-use warp::http::{
-    self,
-    header::{HeaderMap, HeaderValue, AUTHORIZATION},
+use warp::{
+    http::header::{HeaderMap, HeaderValue, AUTHORIZATION},
+    reject, reply, Rejection, Reply,
 };
-use warp::{reject, reply, Rejection, Reply};
 
 use super::LoginRequest;
-use crate::auth::{create_jwt, decode, generate_password, Role, BEARER, JWT_SECRET};
+use crate::auth::{create_jwt, generate_password, BEARER};
 use crate::error::Error;
+
+pub(super) async fn login_handler(
+    lr: LoginRequest,
+    db: Arc<Client>,
+) -> Result<impl Reply, Rejection> {
+    let LoginRequest {
+        email,
+        password,
+        permanent,
+    } = lr;
+
+    let statement = db
+        .prepare_typed(
+            "SELECT
+            ID, PASSWORD, ROLE
+            FROM EMPLOYEE
+            WHERE EMAIL = $1",
+            &[Type::TEXT],
+        )
+        .await
+        .map_err(|e| reject::custom(Error::StatementPrepareError(e)))?;
+
+    let row = db
+        .query_one(&statement, &[&email])
+        .await
+        .map_err(|e| reject::custom(Error::QueryError(e)))?;
+
+    let id = row.get(0);
+    let password = generate_password(password, &id);
+    let stored_password: String = row.get(1);
+
+    if password == stored_password {
+        let role: String = row.get(2);
+        let role = role
+            .parse()
+            .map_err(|_| reject::custom(Error::ParseError))?;
+        let token = create_jwt(id, role, permanent)
+            .map_err(|e| reject::custom(Error::JWTTokenCreationError(e)))?;
+        Ok(reply::with_header(
+            reply(),
+            "set-cookie",
+            format!("access_token={}", token),
+        ))
+    } else {
+        Err(reject::custom(Error::WrongCredentialsError))
+    }
+}
 
 pub(super) fn jwt_from_header(headers: &HeaderMap<HeaderValue>) -> Result<String, Error> {
     let header = headers.get(AUTHORIZATION).ok_or(Error::NoAuthHeaderError)?;

@@ -13,8 +13,8 @@ pub const JWT_SECRET: &[u8] = b"This is a very big secret.";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    exp: usize,
-    iat: usize,
+    pub exp: usize,
+    pub iat: usize,
     pub role: String,
     pub sub: String,
 }
@@ -101,8 +101,16 @@ pub fn decode(
     .claims)
 }
 
-pub fn create_jwt(id: Uuid, role: Role) -> Result<String, jsonwebtoken::errors::Error> {
-    let claims = Claims::new(id.to_string(), role.to_string());
+pub fn create_jwt(
+    id: Uuid,
+    role: Role,
+    permanent: Option<bool>,
+) -> Result<String, jsonwebtoken::errors::Error> {
+    let claims = if let Some(true) = permanent {
+        Claims::new_permanent(id.to_string(), role.to_string())
+    } else {
+        Claims::new(id.to_string(), role.to_string())
+    };
     encode(&claims, JWT_SECRET)
 }
 

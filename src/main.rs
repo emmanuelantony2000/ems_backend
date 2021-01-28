@@ -9,14 +9,18 @@ mod routes;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let db = db::init().await?;
+    tracing_subscriber::fmt::init();
 
+    let db = db::init().await?;
     let route = health()
         .or(routes::get_employee(Arc::clone(&db)))
         .or(routes::get_self(Arc::clone(&db)))
         .or(routes::get_employees(Arc::clone(&db)))
         .or(routes::post_employees(Arc::clone(&db)))
-        .or(routes::login(Arc::clone(&db)));
+        .or(routes::delete_employee(Arc::clone(&db)))
+        .or(routes::login(Arc::clone(&db)))
+        .or(routes::get_attendance(Arc::clone(&db)))
+        .or(routes::post_attendance(Arc::clone(&db)));
 
     warp::serve(route).run(([127, 0, 0, 1], 8080)).await;
 

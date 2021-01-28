@@ -1,4 +1,3 @@
-use std::convert::Infallible;
 use std::sync::Arc;
 
 use tokio_postgres::Client;
@@ -56,4 +55,15 @@ pub fn post_employees(
         .and(with_auth(Role::Admin))
         .map(|employees, db, _| (employees, db))
         .and_then(functions::pe)
+}
+
+pub fn delete_employee(
+    db: Arc<Client>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("employee" / String)
+        .and(warp::delete())
+        .and(with_db(db))
+        .and(with_auth(Role::Admin))
+        .map(|email, db, _| (email, db))
+        .and_then(functions::de)
 }

@@ -1,16 +1,15 @@
 use std::sync::Arc;
 
-use tokio_postgres::types::Type;
+use chrono::Utc;
 use tokio_postgres::Client;
 use uuid::Uuid;
 use warp::{
-    filters::header::headers_cloned,
-    http::header::{HeaderMap, HeaderValue, AUTHORIZATION},
-    reject, reply, Filter, Rejection, Reply,
+    http::header::{HeaderMap, HeaderValue},
+    reject, Filter, Rejection,
 };
 
 use super::with_db;
-use crate::auth::{create_jwt, decode, generate_password, Role, JWT_SECRET};
+use crate::auth::{decode, Role, JWT_SECRET};
 use crate::error::Error;
 
 mod data_structures;
@@ -25,7 +24,7 @@ pub fn login(
         .and(warp::post())
         .and(warp::body::json())
         .and(with_db(db))
-        .and_then(login_handler)
+        .and_then(functions::login_handler)
 }
 
 pub(super) async fn authorize(
@@ -38,50 +37,16 @@ pub(super) async fn authorize(
         .role
         .parse()
         .map_err(|_| reject::custom(Error::ParseError))?;
+    let exp = claims.exp;
+    let now = Utc::now().timestamp() as usize;
+
+    if exp < now {
+        return Err(reject::custom(Error::JWTExpiredError));
+    }
 
     if role != c_role {
         return Err(reject::custom(Error::NoPermissionError));
     }
 
     Ok(Uuid::parse_str(&claims.sub).map_err(|_| reject::custom(Error::ParseError))?)
-}
-
-pub async fn login_handler(lr: LoginRequest, db: Arc<Client>) -> Result<impl Reply, Rejection> {
-    let LoginRequest { email, password } = lr;
-
-    let statement = db
-        .prepare_typed(
-            "SELECT
-            ID, PASSWORD, ROLE
-            FROM EMPLOYEE
-            WHERE EMAIL = $1",
-            &[Type::TEXT],
-        )
-        .await
-        .map_err(|_| reject::custom(Error::StatementPrepareError))?;
-
-    let row = db
-        .query_one(&statement, &[&email])
-        .await
-        .map_err(|_| reject::custom(Error::QueryError))?;
-
-    let id = row.get(0);
-    let password = generate_password(password, &id);
-    let stored_password: String = row.get(1);
-
-    if password == stored_password {
-        let role: String = row.get(2);
-        let role = role
-            .parse()
-            .map_err(|_| reject::custom(Error::ParseError))?;
-        let token =
-            create_jwt(id, role).map_err(|e| reject::custom(Error::JWTTokenCreationError(e)))?;
-        Ok(reply::with_header(
-            reply(),
-            "set-cookie",
-            format!("access_token={}", token),
-        ))
-    } else {
-        Err(reject::custom(Error::WrongCredentialsError))
-    }
 }
