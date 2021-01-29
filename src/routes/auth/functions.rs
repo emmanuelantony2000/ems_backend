@@ -12,15 +12,13 @@ use crate::auth::{create_jwt, generate_password, BEARER};
 use crate::error::Error;
 
 pub(super) async fn login_handler(
-    lr: LoginRequest,
-    db: Arc<Client>,
-) -> Result<impl Reply, Rejection> {
-    let LoginRequest {
+    LoginRequest {
         email,
         password,
         permanent,
-    } = lr;
-
+    }: LoginRequest,
+    db: Arc<Client>,
+) -> Result<impl Reply, Rejection> {
     let statement = db
         .prepare_typed(
             "SELECT

@@ -14,7 +14,7 @@ pub(super) async fn ga((employee_id, db): (Uuid, Arc<Client>)) -> Result<impl Re
         .prepare_typed(
             "SELECT
             DATESTAMP, TIMESTAMP
-            FROM EMPLOYEE
+            FROM ATTENDANCE
             WHERE EMPLOYEE_ID = $1",
             &[Type::UUID],
         )
@@ -39,7 +39,7 @@ pub(super) async fn ga((employee_id, db): (Uuid, Arc<Client>)) -> Result<impl Re
 
 pub(super) async fn pa((employee_id, db): (Uuid, Arc<Client>)) -> Result<impl Reply, Rejection> {
     let id = Uuid::new_v4();
-    let datetime = Utc::now().naive_local();
+    let datetime = Utc::now().naive_utc();
     let date = datetime.date();
     let time = datetime.time();
 

@@ -13,10 +13,12 @@ use crate::auth::Role;
 
 mod attendance;
 mod auth;
+mod designation;
 mod employee;
 
 pub use attendance::*;
 pub use auth::*;
+pub use designation::*;
 pub use employee::*;
 
 fn with_db(db: Arc<Client>) -> impl Filter<Extract = (Arc<Client>,), Error = Infallible> + Clone {

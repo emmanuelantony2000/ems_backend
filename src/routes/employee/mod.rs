@@ -10,7 +10,9 @@ use crate::auth::Role;
 mod data_structures;
 mod functions;
 
-use data_structures::{Employee, EmployeeId};
+use data_structures::{
+    Employee, EmployeeId, EmployeeOptionAdmin, EmployeeOptionUser, EmployeePassword,
+};
 
 pub fn get_employee(
     db: Arc<Client>,
@@ -23,15 +25,51 @@ pub fn get_employee(
         .and_then(functions::ge)
 }
 
-pub fn get_self(
+pub fn get_employee_self(
     db: Arc<Client>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
     warp::path!("employee" / "self")
         .and(warp::get())
         .and(with_db(db))
-        .and(with_auth(Role::User))
+        .and(with_auth(Role::Admin).or(with_auth(Role::User)).unify())
         .map(|db, id| (id, db))
         .and_then(functions::ge)
+}
+
+pub fn post_employee(
+    db: Arc<Client>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("employee")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and(with_db(db))
+        .and(with_auth(Role::Admin))
+        .map(|employee, db, _| (employee, db))
+        .and_then(functions::pe)
+}
+
+pub fn put_employee(
+    db: Arc<Client>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("employee")
+        .and(warp::put())
+        .and(warp::body::json())
+        .and(with_db(db))
+        .and(with_auth(Role::Admin))
+        .map(|employee, db, _| (employee, db))
+        .and_then(functions::pea)
+}
+
+pub fn put_employee_self(
+    db: Arc<Client>,
+) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    warp::path!("employee" / "self")
+        .and(warp::put())
+        .and(warp::body::json())
+        .and(with_db(db))
+        .and(with_auth(Role::User))
+        .map(|employee, db, id| (employee, id, db))
+        .and_then(functions::peu)
 }
 
 pub fn get_employees(
@@ -48,22 +86,22 @@ pub fn get_employees(
 pub fn post_employees(
     db: Arc<Client>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("employee")
+    warp::path!("employee" / "multi")
         .and(warp::post())
         .and(warp::body::json())
         .and(with_db(db))
         .and(with_auth(Role::Admin))
         .map(|employees, db, _| (employees, db))
-        .and_then(functions::pe)
+        .and_then(functions::pes)
 }
 
 pub fn delete_employee(
     db: Arc<Client>,
 ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    warp::path!("employee" / String)
+    warp::path!("employee" / Uuid)
         .and(warp::delete())
         .and(with_db(db))
         .and(with_auth(Role::Admin))
-        .map(|email, db, _| (email, db))
+        .map(|id, db, _| (id, db))
         .and_then(functions::de)
 }
